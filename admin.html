@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OpenLight Admin</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<main class="card">
+  <h2>OpenLight — Admin Panel</h2>
+  <p class="desc">Sign in with Google. You must be the configured admin UID to view logs.</p>
+  <div id="authArea">
+    <button id="signIn">Sign in with Google</button>
+    <button id="signOut" style="display:none">Sign out</button>
+  </div>
+  <div id="adminArea" style="display:none">
+    <h3>Logs</h3>
+    <table id="logTable" border="1" style="width:100%;border-collapse:collapse"></table>
+  </div>
+  <div class="footer">Admin: protect your credentials — see README for setup.</div>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script>
+// firebase config placeholder - replace
+const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+};
+
+const ADMIN_UID = "YOUR_ADMIN_UID_HERE"; // set this in README after you sign in once
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+const signInBtn = document.getElementById('signIn');
+const signOutBtn = document.getElementById('signOut');
+const adminArea = document.getElementById('adminArea');
+const logTable = document.getElementById('logTable');
+
+signInBtn.onclick = ()=> auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+signOutBtn.onclick = ()=> auth.signOut();
+
+auth.onAuthStateChanged(async user=>{
+  if(user){
+    signInBtn.style.display='none'; signOutBtn.style.display='inline-block';
+    // check UID
+    if(user.uid === ADMIN_UID){
+      adminArea.style.display='block';
+      loadLogs();
+    } else {
+      adminArea.style.display='none';
+      alert('Your UID is not admin. Copy your UID from console and put it in README/admin settings.');
+      console.log('Your UID:', user.uid);
+    }
+  } else {
+    signInBtn.style.display='inline-block'; signOutBtn.style.display='none';
+    adminArea.style.display='none';
+  }
+});
+
+async function loadLogs(){
+  const snapshot = await db.collection('openlight_logs').orderBy('time','desc').limit(500).get();
+  const rows = [['Time','Name','IP','City','Country','UserAgent']];
+  snapshot.forEach(doc=>{
+    const d = doc.data();
+    rows.push([d.time||'', d.name||'', d.ip||'', d.city||'', d.country||'', d.userAgent||'']);
+  });
+  // render table
+  logTable.innerHTML = '';
+  rows.forEach((r,i)=>{
+    const tr = document.createElement('tr');
+    r.forEach(cell=>{
+      const td = document.createElement(i===0?'th':'td');
+      td.textContent = cell;
+      tr.appendChild(td);
+    });
+    logTable.appendChild(tr);
+  });
+}
+</script>
+</body>
+</html>
