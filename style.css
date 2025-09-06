@@ -1,0 +1,5 @@
+body { font-family: Tahoma; background:#1b0f23; color:#efe9fb; padding:20px; }
+input, button { padding:5px; margin:5px; }
+button { background:#6b2fa6; color:white; border:none; border-radius:5px; cursor:pointer; }
+table { width:100%; border-collapse:collapse; margin-top:10px; }
+th, td { padding:5px; border:1px solid #efe9fb; text-align:center; }
