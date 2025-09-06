@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>Admin Panel</title>
+<link rel='stylesheet' href='style.css'>
+</head>
+<body>
+<div class='container'>
+<h1>Admin Panel - License Logs</h1>
+<table id='log-table' border='1' style='width:80%; margin: 20px auto; border-collapse: collapse; color: #fff;'>
+<tr><th>License</th><th>Time</th></tr>
+</table>
+<button id='back-btn'>Back</button>
+</div>
+<script>
+let logs = JSON.parse(localStorage.getItem('logs') || '[]');
+const table = document.getElementById('log-table');
+logs.forEach(log => {
+    let row = table.insertRow();
+    let cell1 = row.insertCell(0);
+    let cell2 = row.insertCell(1);
+    cell1.innerText = log.license;
+    cell2.innerText = log.time;
+});
+document.getElementById('back-btn').addEventListener('click', () => {
+    window.location.href = 'index.html';
+});
+</script>
+</body>
+</html>
