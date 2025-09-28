@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="fa">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>iBoomer — Console (Demo Visual)</title>
+<style>
+  :root{
+    --bg:#071018;
+    --panel:#0b1b25;
+    --accent:#00ff6a;
+    --muted:#90a4b3;
+    --glass: rgba(255,255,255,0.03);
+    font-family: "SF Pro Text", "Inter", "Segoe UI", Tahoma, sans-serif;
+  }
+  html,body{height:100%;margin:0;background:
+    radial-gradient(circle at 10% 10%, rgba(0,255,110,0.02), transparent 6%),
+    linear-gradient(180deg,#051018 0%, #08161e 100%);
+    color:#d7e7ee;direction:rtl;}
+  .wrap{display:flex;height:100%;align-items:center;justify-content:center;padding:32px;box-sizing:border-box}
+  .card{Width:1200px;max-width:96vw;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));box-shadow: 0 12px 40px rgba(2,8,12,0.6);overflow:hidden;border:1px solid rgba(255,255,255,0.03)}
+  .topbar{display:flex;align-items:center;gap:12px;padding:16px;background:linear-gradient(90deg, rgba(0,0,0,0.15), transparent)}
+  .dots{display:flex;gap:8px}
+  .dot{width:12px;height:12px;border-radius:50%;background:#ff6b6b;box-shadow: 0 0 6px rgba(255,107,107,0.25)}
+  .dot.yellow{background:#f6d365}
+  .dot.green{background:#8df58a}
+  .title{flex:1;font-weight:600;letter-spacing:0.6px}
+  .meta{font-size:13px;color:var(--muted)}
+  .main{display:flex;gap:0}
+  .left{
+    width:780px;background:linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.25));
+    padding:28px 28px 36px;box-sizing:border-box;border-right:1px solid rgba(255,255,255,0.02)
+  }
+  .terminal{
+    background:var(--panel);border-radius:8px;padding:18px;box-sizing:border-box;height:540px;overflow:hidden;position:relative;
+    display:flex;flex-direction:column;gap:8px;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.4);
+  }
+  .term-header{display:flex;align-items:center;gap:12px;color:var(--muted)}
+  .term-screen{flex:1;background:linear-gradient(180deg, rgba(0,0,0,0.55), rgba(2,6,10,0.6));padding:14px;border-radius:6px;overflow:auto;font-family: "Courier New", Courier, monospace;font-size:15px;color:var(--accent);line-height:1.45;white-space:pre-wrap}
+  .term-screen .muted{color:#6b8896}
+  .right{flex:1;padding:22px;box-sizing:border-box;display:flex;flex-direction:column;gap:14px;justify-content:flex-start}
+  .status-card{background:var(--glass);padding:14px;border-radius:8px;backdrop-filter: blur(4px);border:1px solid rgba(255,255,255,0.02)}
+  .big-counter{font-family: "Segoe UI Black", "Inter", sans-serif;font-size:64px;color:var(--accent);letter-spacing:2px}
+  .small{color:var(--muted);font-size:13px}
+  .loc{display:flex;align-items:center;gap:10px}
+  .pin{width:44px;height:44px;border-radius:8px;background:linear-gradient(180deg,#05202a,#0b2b34);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);box-shadow:0 6px 18px rgba(0,255,110,0.04)}
+  .footer{padding:14px;color:var(--muted);font-size:13px;border-top:1px solid rgba(255,255,255,0.02);display:flex;justify-content:space-between}
+  .fake-btn{padding:10px 14px;border-radius:8px;background:linear-gradient(90deg, rgba(0,0,0,0.25), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.02);cursor:default}
+  /* subtle scanline overlay */
+  .scanlines{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(transparent 94%, rgba(0,0,0,0.03) 100%);background-size:100% 4px;mix-blend-mode:overlay;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card" role="main" aria-label="iBoomer demo visual">
+    <div class="topbar">
+      <div class="dots">
+        <div class="dot"></div><div class="dot yellow"></div><div class="dot green"></div>
+      </div>
+      <div class="title">iBoomer • console</div>
+      <div class="meta">نمایش محلی — شبیه‌سازی بصری</div>
+    </div>
+
+    <div class="main">
+      <div class="left">
+        <div class="terminal" id="terminal">
+          <div class="term-header">
+            <div style="font-weight:700">SESSION: /dev/tty0</div>
+            <div style="flex:1"></div>
+            <div class="small muted">SAT 28 SEP 2025 — 13:34</div>
+          </div>
+
+          <div class="term-screen" id="termScreen" aria-hidden="false">
+/boot/loading… [OK]
+init → iBoomer v●●●  (visual demo)
+binding interfaces: [display-only]
+targeting mode: <SIMULATED>  <-- display only, no network
+spawn threads: 12
+enqueuing batch: 100
+launch window: immediate
+-- launched at 13:34:22
+[INFO] spawn #001 → task "sms:bolt" visualized
+[TRACE] tx_queue[000..099] populate → READY
+[STATUS] concurrent streams: 12  •  estimated throughput: █████████ (simulated)
+[OUTPUT] last_packet: 0x4A3F•••• (hex-preview)
+>> echo "DELIVERED: 12 / 100" 
+>> echo "DELIVERED: 37 / 100"
+>> echo "DELIVERED: 68 / 100"
+>> echo "DELIVERED: <span id='deliveredInline'>0</span> / 100"
+<span class="muted">
+# location metadata: IRAN / SHIRAZ
+# visual mode: cinematic, high-contrast
+# note: display-only simulation — no outgoing connections
+</span>
+          </div>
+          <div class="scanlines"></div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="status-card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="small">TOTAL BATCH</div>
+              <div class="big-counter" id="counter">0</div>
+              <div class="small muted">هدف: 100 پیام — حالت: نمایش</div>
+            </div>
+            <div style="text-align:right">
+              <div class="small">SESSION ID</div>
+              <div style="font-weight:700">IB-2048-XY</div>
+              <div style="height:8px"></div>
+              <div class="fake-btn">ATTACH LOGS</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="status-card">
+          <div class="small">CONSOLE HIGHLIGHTS</div>
+          <ul style="margin:8px 0 0 18px;color:var(--accent);font-family:monospace">
+            <li>spawn threads: 12</li>
+            <li>tx_queue: 100 entries</li>
+            <li>throughput: simulated</li>
+            <li>geo-tag: IRAN / SHIRAZ</li>
+          </ul>
+        </div>
+
+        <div class="status-card loc">
+          <div class="pin">IR</div>
+          <div>
+            <div style="font-weight:700">IRAN • SHIRAZ</div>
+            <div class="small muted">نمایش موقعیت مکانی به‌صورت تزئینی</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="footer">
+      <div>visual mockup • local demo</div>
+      <div class="small muted">render engine: cinematic • fps: 60 (simulated)</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // فقط برای نمایش — هیچ‌چیز ارسال نمی‌شود. این کد محلی و بدون شبکه است.
+  (function(){
+    const target = 100;
+    let n=0;
+    const counter = document.getElementById('counter');
+    const inline = document.getElementById('deliveredInline');
+    const term = document.getElementById('termScreen');
+
+    // شبیه‌سازی تحویل پیام — توزیع غیرخطی برای حالت سینمایی
+    function tick(){
+      if(n>=target) return;
+      // افزایش نمایشی: با یک الگوی شبه-تصادفی که به 100 می‌رسد
+      const delta = Math.max(1, Math.round( (1 + Math.sin(n/7))*3 ));
+      n = Math.min(target, n + delta);
+      counter.textContent = n.toString().padStart(3,'0');
+      inline.textContent = n + " / " + target;
+
+      // append cinematic lines to terminal
+      const lines = [
+        `[INFO] tx_id ${String(1000+n).slice(-4)} → queued`,
+        `[DBG] route_check: ok`,
+        `[OUT] delivered preview: ${n}/${target}`,
+      ];
+      // keep terminal length bounded
+      const cur = term.textContent;
+      const add = lines.join('\\n');
+      // append visually (not altering innerHTML of protected spans too much)
+      if(term.innerText.length > 4000){
+        term.innerText = term.innerText.slice(-3000);
+      }
+      term.innerText += "\\n" + add;
+      term.scrollTop = term.scrollHeight;
+
+      // schedule next tick with cinematic pacing
+      const next = 120 + Math.round(Math.random()*340);
+      setTimeout(tick, next);
+    }
+
+    // kick off
+    setTimeout(tick, 600);
+  })();
+</script>
+</body>
+</html>
