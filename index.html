@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>NovaLift — Mini Space Launch Demo</title>
+<!-- Three.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/libs/dat.gui.min.js"></script>
+<style>
+  html,body {height:100%;margin:0;background:#000;overflow:hidden;font-family:Inter,Arial;}
+  #container{width:100%;height:100%;position:relative;}
+  #ui {position:absolute;left:12px;top:12px;color:#e6eef8;z-index:5;background:rgba(0,0,0,0.25);padding:10px;border-radius:8px;}
+  #title{font-weight:700;font-size:16px;margin-bottom:6px}
+  #hud {position:absolute;right:12px;top:12px;color:#dfefff;z-index:5;background:rgba(0,0,0,0.15);padding:10px;border-radius:8px;text-align:right}
+  button{background:#1e293b;color:#fff;padding:6px 10px;border-radius:6px;border:none;cursor:pointer}
+  small {opacity:0.85;font-size:12px;color:#cfe6ff}
+  #footer{position:absolute;left:12px;bottom:12px;color:#9fb8d8;background:rgba(0,0,0,0.12);padding:8px;border-radius:6px}
+</style>
+</head>
+<body>
+<div id="container"></div>
+<div id="ui">
+  <div id="title">NovaLift — 3D Launch Demo</div>
+  <div>Controls: <small>W/S accelerate, A/D yaw, Space = thrust, C = camera toggle, R = reset</small></div>
+  <div style="margin-top:8px"><button id="launchBtn">Ignite & Launch</button></div>
+</div>
+<div id="hud">
+  <div>Altitude: <span id="alt">0</span> m</div>
+  <div>Speed: <span id="spd">0</span> m/s</div>
+  <div>Stage: <span id="stage">Ground</span></div>
+</div>
+<div id="footer">Rendered with Three.js — Open in a modern browser (WebGL)</div>
+
+<script>
+// === global setup ===
+const container = document.getElementById('container');
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x061529, 0.00025);
+
+// renderer
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+// camera
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1e7);
+camera.position.set(0, 12, 32);
+
+// controls for orbiting the demo
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.minDistance = 5;
+controls.maxDistance = 500;
+
+// lighting
+const hemi = new THREE.HemisphereLight(0x99c0ff, 0x202034, 0.8);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff2d6, 1.2);
+sun.position.set(100,200,100);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.near = 0.5;
+sun.shadow.camera.far = 1000;
+sun.shadow.camera.left = -200; sun.shadow.camera.right = 200;
+sun.shadow.camera.top = 200; sun.shadow.camera.bottom = -200;
+scene.add(sun);
+
+// ground grid + terrain (a sphere patch visible up-close)
+const world = new THREE.Group();
+scene.add(world);
+
+// create planet as a large sphere under the scene center
+const PLANET_RADIUS = 3000; // meters (scaled)
+const planetGeo = new THREE.SphereGeometry(PLANET_RADIUS, 64, 64);
+const planetMat = new THREE.MeshStandardMaterial({
+  color: 0x4a6fb2,
+  metalness: 0.05,
+  roughness: 0.9,
+  displacementScale: 10,
+});
+const planet = new THREE.Mesh(planetGeo, planetMat);
+planet.receiveShadow = true;
+planet.castShadow = false;
+planet.position.set(0, -PLANET_RADIUS, 0); // center so surface is near y=0 plane
+scene.add(planet);
+
+// atmospheric scattering (simple layered approach)
+const atmosphereGeo = new THREE.SphereGeometry(PLANET_RADIUS*1.02, 64, 64);
+const atmosphereMat = new THREE.ShaderMaterial({
+  transparent:true,
+  blending: THREE.AdditiveBlending,
+  uniforms: { "c":{value:0.5}, "p":{value:4.0}, "glowColor":{value:new THREE.Color(0x88b7ff)} },
+  vertexShader: `varying vec3 vNormal; void main(){ vNormal = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `uniform vec3 glowColor; uniform float c; uniform float p; varying vec3 vNormal; void main(){ float intensity = pow(c - dot(vNormal, vec3(0.0,1.0,0.0)), p); gl_FragColor = vec4(glowColor, intensity); }`
+});
+const atmosphere = new THREE.Mesh(atmosphereGeo, atmosphereMat);
+atmosphere.position.copy(planet.position);
+scene.add(atmosphere);
+
+// skybox stars (procedural star field)
+const starGeo = new THREE.BufferGeometry();
+const starCount = 10000;
+const starPos = new Float32Array(starCount*3);
+for(let i=0;i<starCount;i++){
+  const r = 20000 + Math.random()*10000;
+  const theta = Math.random()*Math.PI*2;
+  const phi = (Math.random()*Math.PI)-Math.PI/2;
+  const x = r*Math.cos(phi)*Math.cos(theta), y = r*Math.sin(phi), z = r*Math.cos(phi)*Math.sin(theta);
+  starPos[i*3]=x; starPos[i*3+1]=y; starPos[i*3+2]=z;
+}
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos,3));
+const starMat = new THREE.PointsMaterial({size:1.2, color:0xffffff, sizeAttenuation:true, opacity:0.9});
+const stars = new THREE.Points(starGeo, starMat);
+scene.add(stars);
+
+// ========= craft (handmade spaceship model) =========
+const ship = new THREE.Group();
+ship.position.set(0, 2, 0);
+ship.rotation.order = "YXZ";
+scene.add(ship);
+
+// hull
+const hullGeo = new THREE.ConeGeometry(0.9, 3.5, 16);
+const hullMat = new THREE.MeshStandardMaterial({color:0xd5d9e3, metalness:0.6, roughness:0.35});
+const hull = new THREE.Mesh(hullGeo, hullMat);
+hull.rotation.x = Math.PI;
+hull.castShadow = true;
+hull.receiveShadow = false;
+ship.add(hull);
+
+// body ring
+const ringGeo = new THREE.CylinderGeometry(0.7,0.7,1.6,24);
+const ringMat = new THREE.MeshStandardMaterial({color:0x253547, metalness:0.9, roughness:0.25});
+const ring = new THREE.Mesh(ringGeo, ringMat);
+ring.position.set(0,-0.2,0);
+ring.castShadow=true; ship.add(ring);
+
+// wings
+function wing(x,y,z){
+  const g = new THREE.BoxGeometry(0.05,0.5,1.8);
+  const m = new THREE.MeshStandardMaterial({color:0x2b3e50, metalness:0.8, roughness:0.2});
+  const w = new THREE.Mesh(g,m);
+  w.position.set(x,y,z);
+  w.rotation.z = (x>0)?-0.2:0.2;
+  w.castShadow=true;
+  ship.add(w);
+}
+wing(1.05,-0.6,0); wing(-1.05,-0.6,0);
+
+// cockpit glass
+const glassGeo = new THREE.SphereGeometry(0.5,16,12);
+const glassMat = new THREE.MeshStandardMaterial({color:0x88cfff, metalness:0.1, roughness:0.05, envMapIntensity:1, opacity:0.95, transparent:true});
+const glass = new THREE.Mesh(glassGeo, glassMat);
+glass.position.set(0,0.2,0.4);
+glass.castShadow=false; ship.add(glass);
+
+// engine base
+const engineGeo = new THREE.CylinderGeometry(0.35,0.45,0.8,16);
+const engineMat = new THREE.MeshStandardMaterial({color:0x111826, metalness:1.0, roughness:0.15});
+const engine = new THREE.Mesh(engineGeo, engineMat);
+engine.position.set(0,-1.8,0); engine.castShadow=true; ship.add(engine);
+
+// exhaust particle system (GPU-friendly basic points)
+const exhaustTex = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/spark1.png');
+const exhaustCount = 600;
+const exGeo = new THREE.BufferGeometry();
+const exPos = new Float32Array(exhaustCount*3);
+const exVel = new Float32Array(exhaustCount*3);
+for(let i=0;i<exhaustCount;i++){
+  exPos[i*3]=0; exPos[i*3+1]=0; exPos[i*3+2]=0;
+  exVel[i*3] = (Math.random()-0.5)*0.5; exVel[i*3+1] = -Math.random()*2-1; exVel[i*3+2] = (Math.random()-0.5)*0.5;
+}
+exGeo.setAttribute('position', new THREE.BufferAttribute(exPos,3));
+const exMat = new THREE.PointsMaterial({size:0.9, map: exhaustTex, transparent:true, depthWrite:false});
+const exhaust = new THREE.Points(exGeo, exMat);
+exhaust.position.set(0,-2.3,0);
+ship.add(exhaust);
+
+// landing pad (simple)
+const padGeo = new THREE.CylinderGeometry(6,6,0.2,48);
+const padMat = new THREE.MeshStandardMaterial({color:0x24313f, metalness:0.1, roughness:0.7});
+const pad = new THREE.Mesh(padGeo, padMat);
+pad.receiveShadow=true; pad.position.set(0,0,0); scene.add(pad);
+const padRingGeo = new THREE.RingGeometry(6.2,8,64);
+const padRingMat = new THREE.MeshBasicMaterial({color:0xffc857, side: THREE.DoubleSide});
+const padRing = new THREE.Mesh(padRingGeo, padRingMat);
+padRing.rotation.x = -Math.PI/2; padRing.position.y = 0.11; scene.add(padRing);
+
+// small terrain decals (rocks)
+for(let i=0;i<30;i++){
+  const r = new THREE.Mesh(new THREE.DodecahedronGeometry(Math.random()*0.25+0.08,0), new THREE.MeshStandardMaterial({color:0x34485c,metalness:0.1,roughness:0.9}));
+  r.position.set((Math.random()-0.5)*10, Math.random()*0.2, (Math.random()-0.5)*10);
+  r.castShadow=true; scene.add(r);
+}
+
+// === physics & flight model (simple but satisfying) ===
+let velocity = new THREE.Vector3(0,0,0);
+let acceleration = new THREE.Vector3(0,0,0);
+let thrust = 0;
+const MAX_THRUST = 120; // tuned scale
+let yaw = 0;
+let pitch = 0;
+let roll = 0;
+const GRAVITY = 9.81; // m/s2 local effect
+let altitude = 0;
+let launched = false;
+let inSpace = false;
+const ALTITUDE_TO_SPACE = 1000; // threshold to consider in space (scaled)
+let worldTime = 0;
+
+// HUD elements
+const altEl = document.getElementById('alt');
+const spdEl = document.getElementById('spd');
+const stageEl = document.getElementById('stage');
+
+// inputs
+const keys = {};
+window.addEventListener('keydown', (e)=>{ keys[e.code]=true; if(e.code==='KeyC'){ toggleCamera(); } if(e.code==='KeyR'){ resetShip(); } });
+window.addEventListener('keyup', (e)=>{ keys[e.code]=false; });
+
+function applyInput(dt){
+  // throttle
+  if(keys['Space'] || keys['KeyW']) { thrust = Math.min(MAX_THRUST, thrust + dt*80); } else { thrust = Math.max(0, thrust - dt*60); }
+  // yaw/turn
+  if(keys['KeyA']) yaw = Math.min(0.6, yaw + dt*1.0); else if(keys['KeyD']) yaw = Math.max(-0.6, yaw - dt*1.0); else yaw = yaw*0.9;
+  // pitch control with S
+  if(keys['KeyS']) pitch = Math.min(0.6, pitch + dt*0.6); else pitch = pitch*0.95;
+}
+
+// camera presets
+let cameraMode = 0;
+function toggleCamera(){ cameraMode = (cameraMode+1)%3; }
+function updateCamera(dt){
+  if(cameraMode===0){ // third-person chase
+    const desiredPos = ship.localToWorld(new THREE.Vector3(0,6,18));
+    camera.position.lerp(desiredPos, dt*3.0);
+    const lookAt = ship.localToWorld(new THREE.Vector3(0,1,0));
+    camera.lookAt(lookAt);
+  } else if(cameraMode===1){ // cockpit (close)
+    const desiredPos = ship.localToWorld(new THREE.Vector3(0,1.8,0.6));
+    camera.position.lerp(desiredPos, dt*6.0);
+    camera.lookAt(ship.localToWorld(new THREE.Vector3(0,1.8,20)));
+  } else { // free orbit
+    controls.enabled = true;
+  }
+  if(cameraMode!==2) controls.enabled = false;
+}
+
+// takeoff sequence
+document.getElementById('launchBtn').addEventListener('click', ()=>{ if(!launched){ launched=true; document.getElementById('stage').innerText='Ascending'; } else { thrust = MAX_THRUST; } });
+
+function resetShip(){
+  launched=false; inSpace=false; thrust=0; velocity.set(0,0,0); ship.position.set(0,2,0); ship.rotation.set(0,0,0);
+  document.getElementById('stage').innerText='Ground';
+}
+
+// simple exhaust update
+function updateExhaust(dt){
+  const posAttr = exhaust.geometry.attributes.position.array;
+  for(let i=0;i<exhaustCount;i++){
+    // spawn at engine origin when thrusting
+    if(thrust>5 && Math.random()>0.5){
+      posAttr[i*3+0]= (Math.random()-0.5)*0.2;
+      posAttr[i*3+1]= -0.1;
+      posAttr[i*3+2]= (Math.random()-0.5)*0.2;
+      exVel[i*3]= (Math.random()-0.5)*0.4; exVel[i*3+1] = -Math.random()*4 - 1; exVel[i*3+2]=(Math.random()-0.5)*0.4;
+    }
+    // integrate
+    posAttr[i*3+0] += exVel[i*3]*dt*10;
+    posAttr[i*3+1] += exVel[i*3+1]*dt*10;
+    posAttr[i*3+2] += exVel[i*3+2]*dt*10;
+    // fade/recycle
+    if(posAttr[i*3+1] < -15){ posAttr[i*3+1] = -1000; }
+  }
+  exhaust.geometry.attributes.position.needsUpdate = true;
+}
+
+// main loop
+let last = performance.now();
+function animate(){
+  const now = performance.now();
+  const dt = Math.min(0.05, (now-last)/1000);
+  last = now;
+  worldTime += dt;
+  controls.update();
+
+  applyInput(dt);
+
+  // basic flight physics (local up is world +Y)
+  if(launched){
+    // compute thrust vector relative to ship forward
+    const forward = new THREE.Vector3(0, -1, 0).applyQuaternion(ship.quaternion).normalize(); // ship nose points -y locally
+    // apply pitch & yaw to rotation
+    ship.rotation.y += yaw*dt;
+    ship.rotation.x += pitch*dt*0.2;
+    // acceleration from thrust
+    const thrustForce = forward.clone().multiplyScalar(thrust*dt*0.5);
+    velocity.add(thrustForce);
+    // gravity pull towards planet surface (simplified)
+    const toCenter = ship.position.clone().sub(planet.position);
+    const dist = toCenter.length();
+    altitude = dist - PLANET_RADIUS;
+    const gravityFactor = Math.max(0, GRAVITY * (1 - altitude/ (ALTITUDE_TO_SPACE*4)));
+    velocity.y -= gravityFactor*dt*0.5;
+    // integrate position
+    ship.position.add(velocity.clone().multiplyScalar(dt*6));
+    // small aerodynamic damping
+    velocity.multiplyScalar(0.999 - dt*0.05);
+
+    // update exhaust emitter to follow ship
+    exhaust.position.copy(ship.position).add(new THREE.Vector3(0,-1.8,0));
+    // transition to space
+    if(!inSpace && altitude > ALTITUDE_TO_SPACE){
+      inSpace=true;
+      document.getElementById('stage').innerText='Orbit';
+      // visual changes when entering space
+      scene.fog.density = 0.00001;
+    }
+    // collision with ground (simple)
+    if(altitude < 1 && ship.position.y < 4 && velocity.y < -10){
+      // crash: reset
+      resetShip();
+    }
+  }
+
+  // animate small bobbing when idle
+  if(!launched){
+    ship.position.y = 1.8 + Math.sin(worldTime*0.8)*0.05;
+  }
+
+  // update HUD
+  altEl.innerText = Math.max(0, Math.round(altitude*10));
+  spdEl.innerText = Math.round(velocity.length()*100);
+
+  // exhaust particles
+  updateExhaust(dt);
+
+  // subtle ship heating when fast
+  const speed = velocity.length();
+  if(speed > 30){
+    hullMat.color.setHSL(0.08, 0.1, 0.75 - Math.min(0.2, (speed-30)/200));
+  } else {
+    hullMat.color.setHex(0xd5d9e3);
+  }
+
+  updateCamera(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+animate();
+
+// handle resize
+window.addEventListener('resize', ()=>{ camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+
+// initial reset
+resetShip();
+</script>
+</body>
+</html>
